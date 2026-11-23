@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="112" fill="#15803D"/>
+  <rect x="28" y="28" width="456" height="456" rx="92" fill="#166534"/>
+  <!-- Molasses drop emblem -->
+  <path d="M256 96C256 96 156 218 156 296C156 351.228 200.772 396 256 396C311.228 396 356 351.228 356 296C356 218 256 96 256 96Z" fill="#D97706"/>
+  <path d="M256 126C256 126 184 222 184 288C184 327.765 216.235 360 256 360C295.765 360 328 327.765 328 288C328 222 256 126 256 126Z" fill="#F59E0B"/>
+  <!-- Highlight inside drop -->
+  <path d="M222 246C212 264 210 286 216 306" stroke="#FEF3C7" stroke-width="14" stroke-linecap="round"/>
+  <!-- Clean ledger bars at bottom -->
+  <rect x="176" y="420" width="160" height="16" rx="8" fill="#ECFDF5" fill-opacity="0.9"/>
+</svg>

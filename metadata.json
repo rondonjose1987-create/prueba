@@ -1,0 +1,6 @@
+{
+  "name": "MelazaFinca — Control de Melaza",
+  "description": "Control de inventario de melaza en finca compartido por Gmail: llegadas, despachos por litros o kilos, precios en dólares y bolívares con tasa referencial del día y hasta 10 columnas de abonos por persona.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

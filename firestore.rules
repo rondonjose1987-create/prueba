@@ -1,0 +1,579 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Global Helpers
+    // -------------------------------------------------------------------------
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email is string
+        && request.auth.token.email.size() >= 3
+        && request.auth.token.email.size() <= 120;
+    }
+
+    function userEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function isValidId(id) {
+      return id is string
+        && id.size() >= 1
+        && id.size() <= 128
+        && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidDateStr(d) {
+      return d is string
+        && d.size() == 10
+        && d.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isValidEmailStr(e) {
+      return e is string
+        && e.size() >= 3
+        && e.size() <= 120;
+    }
+
+    function isValidEmailList(list) {
+      return list is list
+        && list.size() >= 1
+        && list.size() <= 20
+        && list[0] is string
+        && list[0].size() >= 3
+        && list[0].size() <= 120;
+    }
+
+    function farmDoc(farmId) {
+      return get(/databases/$(database)/documents/farms/$(farmId));
+    }
+
+    function farmExists(farmId) {
+      return exists(/databases/$(database)/documents/farms/$(farmId));
+    }
+
+    function isFarmOwner(farmId) {
+      return farmExists(farmId)
+        && farmDoc(farmId).data.ownerId == request.auth.uid
+        && farmDoc(farmId).data.ownerEmail == userEmail();
+    }
+
+    function hasFarmReadAccess(farmId) {
+      return farmExists(farmId) && (
+        farmDoc(farmId).data.ownerEmail == userEmail()
+        || userEmail() in farmDoc(farmId).data.authorizedEmails
+      );
+    }
+
+    function hasFarmEditorAccess(farmId) {
+      return farmExists(farmId) && (
+        farmDoc(farmId).data.ownerEmail == userEmail()
+        || userEmail() in farmDoc(farmId).data.editorEmails
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // Entity Validation Blueprints
+    // -------------------------------------------------------------------------
+    function isValidFarm(data, farmId) {
+      return data.keys().hasAll([
+          'id', 'name', 'ownerId', 'ownerEmail',
+          'defaultExchangeRate', 'densityKgPerLiter',
+          'bcvAutoSync', 'bcvFechaValor', 'bcvExactRate',
+          'authorizedEmails', 'editorEmails',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'ownerId', 'ownerEmail',
+          'defaultExchangeRate', 'densityKgPerLiter',
+          'bcvAutoSync', 'bcvFechaValor', 'bcvExactRate',
+          'authorizedEmails', 'editorEmails',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id == farmId
+        && isValidId(data.id)
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+        && isValidId(data.ownerId)
+        && isValidEmailStr(data.ownerEmail)
+        && data.defaultExchangeRate is number && data.defaultExchangeRate > 0 && data.defaultExchangeRate <= 100000000
+        && data.densityKgPerLiter is number && data.densityKgPerLiter > 0 && data.densityKgPerLiter <= 10
+        && data.bcvAutoSync is bool
+        && data.bcvFechaValor is string && data.bcvFechaValor.size() <= 20
+        && data.bcvExactRate is number && data.bcvExactRate >= 0 && data.bcvExactRate <= 100000000
+        && isValidEmailList(data.authorizedEmails)
+        && isValidEmailList(data.editorEmails)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCollaborator(data, farmId, collabId) {
+      return data.keys().hasAll([
+          'id', 'farmId', 'email', 'displayName', 'role',
+          'ownerEmail', 'authorizedEmails', 'addedByUid',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'farmId', 'email', 'displayName', 'role',
+          'ownerEmail', 'authorizedEmails', 'addedByUid',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id == collabId
+        && isValidId(data.id)
+        && data.farmId == farmId
+        && isValidId(data.farmId)
+        && isValidEmailStr(data.email)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.role in ['admin', 'operador', 'consulta']
+        && isValidEmailStr(data.ownerEmail)
+        && isValidEmailList(data.authorizedEmails)
+        && isValidId(data.addedByUid)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidArrival(data, farmId, arrivalId) {
+      return data.keys().hasAll([
+          'id', 'farmId', 'arrivalDate', 'supplier', 'quantity', 'unit',
+          'costUsd', 'exchangeRateBs', 'costBs', 'notes',
+          'ownerEmail', 'authorizedEmails', 'createdByUid', 'createdByEmail',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'farmId', 'arrivalDate', 'supplier', 'quantity', 'unit',
+          'costUsd', 'exchangeRateBs', 'costBs', 'notes',
+          'ownerEmail', 'authorizedEmails', 'createdByUid', 'createdByEmail',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id == arrivalId
+        && isValidId(data.id)
+        && data.farmId == farmId
+        && isValidId(data.farmId)
+        && isValidDateStr(data.arrivalDate)
+        && data.supplier is string && data.supplier.size() >= 1 && data.supplier.size() <= 100
+        && data.quantity is number && data.quantity > 0 && data.quantity <= 10000000
+        && data.unit in ['litros', 'kilos']
+        && data.costUsd is number && data.costUsd >= 0 && data.costUsd <= 100000000
+        && data.exchangeRateBs is number && data.exchangeRateBs > 0 && data.exchangeRateBs <= 100000000
+        && data.costBs is number && data.costBs >= 0 && data.costBs <= 1000000000000
+        && data.notes is string && data.notes.size() <= 300
+        && isValidEmailStr(data.ownerEmail)
+        && isValidEmailList(data.authorizedEmails)
+        && isValidId(data.createdByUid)
+        && isValidEmailStr(data.createdByEmail)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPerson(data, farmId, personId) {
+      return data.keys().hasAll([
+          'id', 'farmId', 'name', 'phone', 'email', 'notes',
+          'ownerEmail', 'authorizedEmails', 'createdByUid',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'farmId', 'name', 'phone', 'email', 'notes',
+          'ownerEmail', 'authorizedEmails', 'createdByUid',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id == personId
+        && isValidId(data.id)
+        && data.farmId == farmId
+        && isValidId(data.farmId)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.phone is string && data.phone.size() <= 30
+        && data.email is string && data.email.size() <= 120
+        && data.notes is string && data.notes.size() <= 240
+        && isValidEmailStr(data.ownerEmail)
+        && isValidEmailList(data.authorizedEmails)
+        && isValidId(data.createdByUid)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDispatch(data, farmId, dispatchId) {
+      return data.keys().hasAll([
+          'id', 'farmId', 'saleDate', 'personId', 'personName',
+          'quantity', 'unit', 'unitPriceUsd', 'totalUsd', 'exchangeRateBs', 'totalBs',
+          'hasAbono', 'abonos', 'totalPaidUsd', 'remainingUsd', 'status', 'notes',
+          'ownerEmail', 'authorizedEmails', 'createdByUid', 'createdByEmail',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'farmId', 'saleDate', 'personId', 'personName',
+          'quantity', 'unit', 'unitPriceUsd', 'totalUsd', 'exchangeRateBs', 'totalBs',
+          'hasAbono', 'abonos', 'totalPaidUsd', 'remainingUsd', 'status', 'notes',
+          'ownerEmail', 'authorizedEmails', 'createdByUid', 'createdByEmail',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id == dispatchId
+        && isValidId(data.id)
+        && data.farmId == farmId
+        && isValidId(data.farmId)
+        && isValidDateStr(data.saleDate)
+        && isValidId(data.personId)
+        && data.personName is string && data.personName.size() >= 1 && data.personName.size() <= 80
+        && data.quantity is number && data.quantity > 0 && data.quantity <= 10000000
+        && data.unit in ['litros', 'kilos']
+        && data.unitPriceUsd is number && data.unitPriceUsd >= 0 && data.unitPriceUsd <= 1000000
+        && data.totalUsd is number && data.totalUsd > 0 && data.totalUsd <= 100000000
+        && data.exchangeRateBs is number && data.exchangeRateBs > 0 && data.exchangeRateBs <= 100000000
+        && data.totalBs is number && data.totalBs >= 0 && data.totalBs <= 1000000000000
+        && data.hasAbono is bool
+        && data.abonos is list
+        && data.abonos.size() <= 15
+        && (
+          data.abonos.size() == 0
+          || (
+            data.abonos[0] is map
+            && data.abonos[0].keys().hasAll(['slot', 'amountUsd', 'exchangeRateBs', 'amountBs', 'date', 'note', 'recordedByEmail'])
+            && data.abonos[0].keys().hasOnly(['slot', 'amountUsd', 'exchangeRateBs', 'amountBs', 'date', 'note', 'recordedByEmail'])
+            && data.abonos[0].slot is number
+            && data.abonos[0].slot >= 1
+            && data.abonos[0].slot <= 15
+            && data.abonos[0].amountUsd is number
+            && data.abonos[0].amountUsd >= 0
+            && data.abonos[0].exchangeRateBs is number
+            && data.abonos[0].exchangeRateBs > 0
+            && data.abonos[0].amountBs is number
+            && data.abonos[0].amountBs >= 0
+            && isValidDateStr(data.abonos[0].date)
+            && data.abonos[0].note is string && data.abonos[0].note.size() <= 120
+            && isValidEmailStr(data.abonos[0].recordedByEmail)
+          )
+        )
+        && data.totalPaidUsd is number && data.totalPaidUsd >= 0 && data.totalPaidUsd <= 100000000
+        && data.remainingUsd is number && data.remainingUsd >= 0 && data.remainingUsd <= 100000000
+        && data.status in ['pendiente', 'abonando', 'pagado']
+        && data.notes is string && data.notes.size() <= 300
+        && isValidEmailStr(data.ownerEmail)
+        && isValidEmailList(data.authorizedEmails)
+        && isValidId(data.createdByUid)
+        && isValidEmailStr(data.createdByEmail)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection Match Blocks
+    // -------------------------------------------------------------------------
+    match /farms/{farmId} {
+      allow list: if isVerifiedUser() && (
+        existing().ownerEmail == userEmail()
+        || userEmail() in existing().authorizedEmails
+      );
+
+      allow get: if isVerifiedUser()
+        && isValidId(farmId)
+        && (
+          existing().ownerEmail == userEmail()
+          || userEmail() in existing().authorizedEmails
+        );
+
+      allow create: if isVerifiedUser()
+        && isValidId(farmId)
+        && isValidFarm(incoming(), farmId)
+        && incoming().ownerId == request.auth.uid
+        && incoming().ownerEmail == userEmail()
+        && userEmail() in incoming().authorizedEmails
+        && userEmail() in incoming().editorEmails
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(farmId)
+        && isValidFarm(incoming(), farmId)
+        && incoming().ownerId == existing().ownerId
+        && incoming().ownerEmail == existing().ownerEmail
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Owner updates farm settings or collaborator email lists
+          (
+            existing().ownerId == request.auth.uid
+            && existing().ownerEmail == userEmail()
+            && existing().ownerEmail in incoming().authorizedEmails
+            && existing().ownerEmail in incoming().editorEmails
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'name', 'defaultExchangeRate', 'densityKgPerLiter',
+              'bcvAutoSync', 'bcvFechaValor', 'bcvExactRate',
+              'authorizedEmails', 'editorEmails', 'updatedAt'
+            ])
+          )
+          ||
+          // Action 2: Authorized editor updates referential exchange rate, BCV sync fields, or density
+          (
+            userEmail() in existing().editorEmails
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'defaultExchangeRate', 'densityKgPerLiter',
+              'bcvAutoSync', 'bcvFechaValor', 'bcvExactRate', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isVerifiedUser()
+        && isValidId(farmId)
+        && existing().ownerId == request.auth.uid
+        && existing().ownerEmail == userEmail();
+
+      // Collaborators Subcollection
+      match /collaborators/{collabId} {
+        allow list: if isVerifiedUser() && (
+          existing().ownerEmail == userEmail()
+          || userEmail() in existing().authorizedEmails
+        );
+
+        allow get: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(collabId)
+          && hasFarmReadAccess(farmId);
+
+        allow create: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(collabId)
+          && isValidCollaborator(incoming(), farmId, collabId)
+          && incoming().addedByUid == request.auth.uid
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && isFarmOwner(farmId)
+          && incoming().ownerEmail == farmDoc(farmId).data.ownerEmail;
+
+        allow update: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(collabId)
+          && isValidCollaborator(incoming(), farmId, collabId)
+          && incoming().id == existing().id
+          && incoming().farmId == existing().farmId
+          && incoming().ownerEmail == existing().ownerEmail
+          && incoming().addedByUid == existing().addedByUid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && isFarmOwner(farmId)
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName', 'role', 'authorizedEmails', 'updatedAt'
+          ]);
+
+        allow delete: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(collabId)
+          && isFarmOwner(farmId);
+      }
+
+      // Molasses Arrivals Subcollection
+      match /arrivals/{arrivalId} {
+        allow list: if isVerifiedUser() && (
+          existing().ownerEmail == userEmail()
+          || userEmail() in existing().authorizedEmails
+        );
+
+        allow get: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(arrivalId)
+          && hasFarmReadAccess(farmId);
+
+        allow create: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(arrivalId)
+          && isValidArrival(incoming(), farmId, arrivalId)
+          && incoming().createdByUid == request.auth.uid
+          && incoming().createdByEmail == userEmail()
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && hasFarmEditorAccess(farmId)
+          && incoming().ownerEmail == farmDoc(farmId).data.ownerEmail;
+
+        allow update: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(arrivalId)
+          && isValidArrival(incoming(), farmId, arrivalId)
+          && incoming().id == existing().id
+          && incoming().farmId == existing().farmId
+          && incoming().ownerEmail == existing().ownerEmail
+          && incoming().createdByUid == existing().createdByUid
+          && incoming().createdByEmail == existing().createdByEmail
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            // Action 1: Editor edits arrival fields
+            (
+              hasFarmEditorAccess(farmId)
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'arrivalDate', 'supplier', 'quantity', 'unit',
+                'costUsd', 'exchangeRateBs', 'costBs', 'notes', 'updatedAt'
+              ])
+            )
+            ||
+            // Action 2: Farm owner syncs authorizedEmails list
+            (
+              isFarmOwner(farmId)
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'authorizedEmails', 'updatedAt'
+              ])
+            )
+          );
+
+        allow delete: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(arrivalId)
+          && hasFarmEditorAccess(farmId);
+      }
+
+      // Person Accounts Subcollection
+      match /persons/{personId} {
+        allow list: if isVerifiedUser() && (
+          existing().ownerEmail == userEmail()
+          || userEmail() in existing().authorizedEmails
+        );
+
+        allow get: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(personId)
+          && hasFarmReadAccess(farmId);
+
+        allow create: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(personId)
+          && isValidPerson(incoming(), farmId, personId)
+          && incoming().createdByUid == request.auth.uid
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && hasFarmEditorAccess(farmId)
+          && incoming().ownerEmail == farmDoc(farmId).data.ownerEmail;
+
+        allow update: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(personId)
+          && isValidPerson(incoming(), farmId, personId)
+          && incoming().id == existing().id
+          && incoming().farmId == existing().farmId
+          && incoming().ownerEmail == existing().ownerEmail
+          && incoming().createdByUid == existing().createdByUid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            // Action 1: Editor updates person details
+            (
+              hasFarmEditorAccess(farmId)
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'name', 'phone', 'email', 'notes', 'updatedAt'
+              ])
+            )
+            ||
+            // Action 2: Farm owner syncs authorizedEmails list
+            (
+              isFarmOwner(farmId)
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'authorizedEmails', 'updatedAt'
+              ])
+            )
+          );
+
+        allow delete: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(personId)
+          && hasFarmEditorAccess(farmId);
+      }
+
+      // Molasses Dispatches Subcollection
+      match /dispatches/{dispatchId} {
+        allow list: if isVerifiedUser() && (
+          existing().ownerEmail == userEmail()
+          || userEmail() in existing().authorizedEmails
+        );
+
+        allow get: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(dispatchId)
+          && hasFarmReadAccess(farmId);
+
+        allow create: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(dispatchId)
+          && isValidDispatch(incoming(), farmId, dispatchId)
+          && incoming().createdByUid == request.auth.uid
+          && incoming().createdByEmail == userEmail()
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && hasFarmEditorAccess(farmId)
+          && incoming().ownerEmail == farmDoc(farmId).data.ownerEmail
+          && existsAfter(/databases/$(database)/documents/farms/$(farmId)/persons/$(incoming().personId));
+
+        allow update: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(dispatchId)
+          && isValidDispatch(incoming(), farmId, dispatchId)
+          && incoming().id == existing().id
+          && incoming().farmId == existing().farmId
+          && incoming().ownerEmail == existing().ownerEmail
+          && incoming().createdByUid == existing().createdByUid
+          && incoming().createdByEmail == existing().createdByEmail
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            // Action 1: Editor records installment payment (abono) while not locked as pagado
+            (
+              hasFarmEditorAccess(farmId)
+              && existing().status != 'pagado'
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'hasAbono', 'abonos', 'totalPaidUsd', 'remainingUsd', 'status', 'notes', 'updatedAt'
+              ])
+            )
+            ||
+            // Action 2: Editor updates dispatch details while not locked as pagado
+            (
+              hasFarmEditorAccess(farmId)
+              && existing().status != 'pagado'
+              && existsAfter(/databases/$(database)/documents/farms/$(farmId)/persons/$(incoming().personId))
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'saleDate', 'personId', 'personName', 'quantity', 'unit',
+                'unitPriceUsd', 'totalUsd', 'exchangeRateBs', 'totalBs',
+                'hasAbono', 'abonos', 'totalPaidUsd', 'remainingUsd', 'status', 'notes', 'updatedAt'
+              ])
+            )
+            ||
+            // Action 3: Farm owner can adjust/reopen any dispatch including paid corrections
+            (
+              isFarmOwner(farmId)
+              && existsAfter(/databases/$(database)/documents/farms/$(farmId)/persons/$(incoming().personId))
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'saleDate', 'personId', 'personName', 'quantity', 'unit',
+                'unitPriceUsd', 'totalUsd', 'exchangeRateBs', 'totalBs',
+                'hasAbono', 'abonos', 'totalPaidUsd', 'remainingUsd', 'status', 'notes', 'updatedAt'
+              ])
+            )
+            ||
+            // Action 4: Farm owner syncs authorizedEmails list
+            (
+              isFarmOwner(farmId)
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'authorizedEmails', 'updatedAt'
+              ])
+            )
+          );
+
+        allow delete: if isVerifiedUser()
+          && isValidId(farmId)
+          && isValidId(dispatchId)
+          && hasFarmEditorAccess(farmId);
+      }
+    }
+  }
+}

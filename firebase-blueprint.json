@@ -1,0 +1,217 @@
+{
+  "entities": {
+    "Farm": {
+      "title": "Farm",
+      "description": "Shared farm workspace for molasses inventory and dispatch ledger.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerEmail": { "type": "string", "maxLength": 120 },
+        "defaultExchangeRate": { "type": "number" },
+        "densityKgPerLiter": { "type": "number" },
+        "bcvAutoSync": { "type": "boolean" },
+        "bcvFechaValor": { "type": "string", "maxLength": 20 },
+        "bcvExactRate": { "type": "number" },
+        "authorizedEmails": { "type": "array" },
+        "editorEmails": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "name",
+        "ownerId",
+        "ownerEmail",
+        "defaultExchangeRate",
+        "densityKgPerLiter",
+        "bcvAutoSync",
+        "bcvFechaValor",
+        "bcvExactRate",
+        "authorizedEmails",
+        "editorEmails",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Collaborator": {
+      "title": "Collaborator",
+      "description": "Gmail collaborator authorized to view or edit a farm workspace.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "farmId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 120 },
+        "displayName": { "type": "string", "maxLength": 80 },
+        "role": { "type": "string", "enum": ["admin", "operador", "consulta"] },
+        "ownerEmail": { "type": "string", "maxLength": 120 },
+        "authorizedEmails": { "type": "array" },
+        "addedByUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "farmId",
+        "email",
+        "displayName",
+        "role",
+        "ownerEmail",
+        "authorizedEmails",
+        "addedByUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MolassesArrival": {
+      "title": "MolassesArrival",
+      "description": "Incoming molasses delivery arriving at the farm.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "farmId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "arrivalDate": { "type": "string", "maxLength": 10, "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "supplier": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string", "enum": ["litros", "kilos"] },
+        "costUsd": { "type": "number" },
+        "exchangeRateBs": { "type": "number" },
+        "costBs": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 300 },
+        "ownerEmail": { "type": "string", "maxLength": 120 },
+        "authorizedEmails": { "type": "array" },
+        "createdByUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdByEmail": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "farmId",
+        "arrivalDate",
+        "supplier",
+        "quantity",
+        "unit",
+        "costUsd",
+        "exchangeRateBs",
+        "costBs",
+        "notes",
+        "ownerEmail",
+        "authorizedEmails",
+        "createdByUid",
+        "createdByEmail",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PersonAccount": {
+      "title": "PersonAccount",
+      "description": "Customer or recipient receiving molasses dispatches.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "farmId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "email": { "type": "string", "maxLength": 120 },
+        "notes": { "type": "string", "maxLength": 240 },
+        "ownerEmail": { "type": "string", "maxLength": 120 },
+        "authorizedEmails": { "type": "array" },
+        "createdByUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "farmId",
+        "name",
+        "phone",
+        "email",
+        "notes",
+        "ownerEmail",
+        "authorizedEmails",
+        "createdByUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MolassesDispatch": {
+      "title": "MolassesDispatch",
+      "description": "Outgoing molasses dispatch/sale per person with USD, Bs.V, referential rate, and up to 15 installment payment slots.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "farmId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "saleDate": { "type": "string", "maxLength": 10, "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "personId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "personName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string", "enum": ["litros", "kilos"] },
+        "unitPriceUsd": { "type": "number" },
+        "totalUsd": { "type": "number" },
+        "exchangeRateBs": { "type": "number" },
+        "totalBs": { "type": "number" },
+        "hasAbono": { "type": "boolean" },
+        "abonos": { "type": "array" },
+        "totalPaidUsd": { "type": "number" },
+        "remainingUsd": { "type": "number" },
+        "status": { "type": "string", "enum": ["pendiente", "abonando", "pagado"] },
+        "notes": { "type": "string", "maxLength": 300 },
+        "ownerEmail": { "type": "string", "maxLength": 120 },
+        "authorizedEmails": { "type": "array" },
+        "createdByUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdByEmail": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "farmId",
+        "saleDate",
+        "personId",
+        "personName",
+        "quantity",
+        "unit",
+        "unitPriceUsd",
+        "totalUsd",
+        "exchangeRateBs",
+        "totalBs",
+        "hasAbono",
+        "abonos",
+        "totalPaidUsd",
+        "remainingUsd",
+        "status",
+        "notes",
+        "ownerEmail",
+        "authorizedEmails",
+        "createdByUid",
+        "createdByEmail",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/farms/{farmId}": {
+      "schema": { "$ref": "#/entities/Farm" },
+      "description": "Farm workspace configuration and authorized Gmail access lists."
+    },
+    "/farms/{farmId}/collaborators/{collabId}": {
+      "schema": { "$ref": "#/entities/Collaborator" },
+      "description": "Authorized Gmail collaborators for the farm."
+    },
+    "/farms/{farmId}/arrivals/{arrivalId}": {
+      "schema": { "$ref": "#/entities/MolassesArrival" },
+      "description": "Incoming molasses deliveries to the farm."
+    },
+    "/farms/{farmId}/persons/{personId}": {
+      "schema": { "$ref": "#/entities/PersonAccount" },
+      "description": "People/customers receiving molasses from the farm."
+    },
+    "/farms/{farmId}/dispatches/{dispatchId}": {
+      "schema": { "$ref": "#/entities/MolassesDispatch" },
+      "description": "Molasses dispatches/sales with USD/Bs.V totals and installment payments."
+    }
+  }
+}
